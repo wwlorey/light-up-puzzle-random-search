@@ -82,32 +82,8 @@ class Board:
 
       Returns True if there is a delimiting black square, False otherwise.
       """
-      # test_cases_list = [
-      #   {
-      #     "upper_bound":   max(coord_a.y, coord_b.y),
-      #     "lower_bound":   max(coord_a.y, coord_b.y),
-      #     "row_or_col":    coord_a.x,
-      #     "test_case_row": True
-      #   },
-      #   {
-      #     "upper_bound":   max(coord_a.x, coord_b.x),
-      #     "lower_bound":   max(coord_a.x, coord_b.x),
-      #     "row_or_col":    coord_a.y,
-      #     "test_case_row": False
-      #   }
-      # ]
-
-      # for test_case in test_cases_list:
-      #   for black_square in self.black_squares:
-      #     black_square_check_coord_row_or_col = black_square.x if test_case["test_case_row"] else black_square.y
-      #     black_square_check_coord_bound      = black_square.y if test_case["test_case_row"] else black_square.x
-
-      #     if  black_square_check_coord_row_or_col == test_case["row_or_col"]   \
-      #         and (test_case["upper_bound"] > black_square_check_coord_bound   \
-      #         and test_case["lower_bound"] < black_square_check_coord_bound):
-      #       return True
-          
-      # return False # No black square delimeter was found
+      if coord_a == coord_b:
+        return True # Delimiting square is irrelevant
 
       if coord_a.x == coord_b.x:
         # Check for delimiting black square in row
@@ -121,6 +97,7 @@ class Board:
         
         return False # No black square delimiter was found
       
+
       if coord_a.y == coord_b.y:
         # Check for delimiting black square in column
         upper_bound = max(coord_a.x, coord_b.x)
@@ -132,6 +109,7 @@ class Board:
             return True
         
         return False # No black square delimiter was found
+
 
       # There is no shared row or column, or the coordinates are the same. Delimiting square is irrelevant
       return True
@@ -202,6 +180,7 @@ class Board:
       
       return num_adj_bulbs
 
+
     # Create and populate set of shined squares
     shined_squares = set([])
 
@@ -249,6 +228,7 @@ class Board:
       """Returns a random coordinate ranging in the space (num_cols, num_rows)"""
       return Coordinate(random.randint(0, self.num_cols - 1), random.randint(0, self.num_cols - 1))
 
+
     coord = get_rand_coord()
     count = 0
 
@@ -260,15 +240,3 @@ class Board:
       return True
     
     return False
-
-
-b = Board()
-b.visualize()
-
-for i in range(10):
-  b.place_bulb_randomly()
-    
-b.visualize()
-
-print(b.check_solved())
-print(b.num_empty_squares)
