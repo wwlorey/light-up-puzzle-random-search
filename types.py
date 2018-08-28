@@ -1,4 +1,5 @@
 from enum import Enum
+import json
 
 
 class Error(Exception):
@@ -22,13 +23,22 @@ class ShineError(Error):
 
 class BulbError(Error):
   def __init__(self, color, coord):
-    Error.__init__(color, coord)
+    Error.__init__(self, color, coord)
     self.message += 'There is already a BULB on that square.\n'
 
 
 class Color(Enum):
   BLACK = 0
   WHITE = 1
+
+
+class BlackSquareAdjValue(Enum):
+  NONE_ADJ      = 0
+  ONE_ADJ       = 1
+  TWO_ADJ       = 2
+  THREE_ADJ     = 3
+  FOUR_ADJ      = 4
+  DONT_CARE_ADJ = 5
 
 
 class Coordinate:
@@ -86,6 +96,8 @@ class Board():
     # Initialize board with all white squares
     self.board = [ [ WhiteSquare() for row in range(self.num_rows) ] for col in range(self.num_cols) ]
 
+    self.num_empty_white_squares = self.num_rows * self.num_cols
+
     # Read line 2 to EoF (coordinates of black squares and their adjacency values)
     for row_index, row_str in enumerate(input_file):
       line_list = [int(i) for i in row_str.split()]
@@ -94,7 +106,9 @@ class Board():
       adj_value = line_list[2]
 
       self.board[black_square_row][black_square_col] = BlackSquare(adj_value)
+      self.num_empty_white_squares -= 1
     
+
     # Generate a coordinate versions of the board
     self.coord_board = []
 
@@ -105,7 +119,11 @@ class Board():
       self.coord_board.append(coord_list)
     
     self.transpose_coord_board = [list(l) for l in zip(*self.coord_board)]
-  
+
+    # Open the config file for reading
+    with open('config.json', 'r') as config_file:
+      self.config_settings = json.loads(config_file.read().replace('\n', ''))
+
   def __str__(self):
     """Returns the string representation of every square in the board"""
     ret = ''
@@ -128,6 +146,7 @@ class Board():
 
     if square.color == Color.WHITE and not square.has_shine and not square.has_bulb and self.update_shine(coord):
       self.board[coord.x][coord.y].has_bulb = True
+      self.num_empty_white_squares -= 1
       return True
 
     if square.color == Color.BLACK:
@@ -154,7 +173,7 @@ class Board():
       FOUND_BLACK_SQUARE = 1
       FOUND_BULB         = 2
 
-    def check_update_square_shine(board, coord):
+    def check_update_square_shine(board, coord, num_empty_white_squares):
       """Determines if a square can be safely shined on.
 
       Returns a ShineInfo flag. 
@@ -165,13 +184,17 @@ class Board():
         if square.has_bulb:
           return ShineInfo.FOUND_BULB
         else:
-          square.has_shine = True
+          if not square.has_shine:
+            num_empty_white_squares[0] -= 1
+            square.has_shine = True
+
           return ShineInfo.NO_ERROR
       
       return ShineInfo.FOUND_BLACK_SQUARE
     
-    # Temporary board so changes are not permanent until safe shining is ensured
+    # Temporary variables so changes are not permanent until safe shining is ensured
     tmp_board = self.board
+    tmp_num_empty_white_squares = [self.num_empty_white_squares]
 
     # Create a list of adjacency lists - used for determining where the bulb shines
     adj_coord_lists = []
@@ -183,7 +206,7 @@ class Board():
 
     for coord_list in adj_coord_lists:
       for coord in coord_list:
-        result = check_update_square_shine(tmp_board, coord)
+        result = check_update_square_shine(tmp_board, coord, tmp_num_empty_white_squares)
     
         if result == ShineInfo.FOUND_BULB:
           return False
@@ -192,10 +215,38 @@ class Board():
 
     # Copy changes to the real board
     self.board = tmp_board
+    self.num_empty_white_squares = tmp_num_empty_white_squares[0]
 
     return True
+
+  def is_solved(self):
+    """Checks to see if a board is solved.
+
+    Returns True if the board is solved, False otherwise.
+    """
+
+    def check_adj_bulbs(coord):
+      """Checks to see if a square has the required number of adjacent bulbs."""
+      square = self.board[coord.x][coord.y]
+
+      if square.color == Color.WHITE or square.adj_value == BlackSquareAdjValue.DONT_CARE_ADJ:
+        return True
       
-  
+      # Adjacent bulb processing
+      return True
+
+    if self.num_empty_white_squares != 0:
+      return False
+
+    if self.config_settings["enforce_adj_quotas"]:
+      for coord_row in self.coord_board:
+        for coord in coord_row:
+          if not check_adj_bulbs(coord):
+            return False
+    
+    return True
+
+
 log_file = open('log.txt', 'w')
 
 b = Board('input.txt')
