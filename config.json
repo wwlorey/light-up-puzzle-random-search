@@ -1,5 +1,7 @@
 {
-    "enforce_adj_quotas": "True",
-    "generate_board": "False",
-    "input_file_name": "input.txt"
+    "enforce_adj_quotas": 1,
+    "generate_board": 0,
+    "input_file_name": "input.txt",
+    "use_external_seed": 0,
+    "seed": 123456789
 }

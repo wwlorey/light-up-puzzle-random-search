@@ -1,7 +1,10 @@
 import json
+import time
+import random
 
 
 ADJ_VALUE_DONT_CARE = 5
+MAX_NUM_RANDOM_PLACEMENTS = 100
 
 
 class Coordinate:
@@ -29,7 +32,7 @@ class Board:
     with open('config.json', 'r') as config_file:
       self.config_settings = json.loads(config_file.read().replace('\n', ''))
 
-    if self.config_settings["generate_board"] == "True":
+    if self.config_settings["generate_board"]:
       # Generate random initial board state
       pass
 
@@ -57,6 +60,16 @@ class Board:
       self.coord_board.append(coord_list)
     
     self.transpose_coord_board = [list(l) for l in zip(*self.coord_board)]
+
+    # Seed the random number generator
+    if self.config_settings["use_external_seed"]:
+      # Use external seed
+      random.seed(self.config_settings["seed"])
+    else:
+      # Default to system time as seed
+      random.seed(time.time)
+
+    self.num_empty_squares = -1 # This value is updated during solution verification
 
   def put_bulb(self, coord):
     """Attempts to place a bulb at coord position on the board.
@@ -212,26 +225,50 @@ class Board:
     
     # Verify all squares are accounted for
     if (len(self.black_squares) + len(self.bulbs) + len(shined_squares)) != (self.num_cols * self.num_rows):
+      self.num_empty_squares = (self.num_cols * self.num_rows) - (len(shined_squares) + len(self.black_squares) + len(self.bulbs))
       return False
 
+    self.num_empty_squares = 0
+
     # Check black square conditions
-    if self.config_settings["enforce_adj_quotas"] == "True":
+    if self.config_settings["enforce_adj_quotas"]:
       for coord, adj_value in self.black_squares.items():
         if adj_value < ADJ_VALUE_DONT_CARE and get_adj_bulbs(coord) != adj_value:
           return False
 
     return True
 
+  def place_bulb_randomly(self):
+    """Attempts to put a bulb randomly on the board in a valid location.
+
+    Stops trying to put a bulb after MAX_NUM_RANDOM_PLACEMENTS tries.
+    Returns True if successful, False otherwise.
+    """
+
+    def get_rand_coord():
+      """Returns a random coordinate ranging in the space (num_cols, num_rows)"""
+      return Coordinate(random.randint(0, self.num_cols - 1), random.randint(0, self.num_cols - 1))
+
+    coord = get_rand_coord()
+    count = 0
+
+    while count < MAX_NUM_RANDOM_PLACEMENTS and not self.put_bulb(coord):
+      coord = get_rand_coord()
+      count += 1
+    
+    if count < MAX_NUM_RANDOM_PLACEMENTS:
+      return True
+    
+    return False
+
 
 b = Board()
 b.visualize()
 
-for x in range(b.num_rows):
-  for y in range(b.num_cols):
-    c = Coordinate(x, y)
-    print(b.put_bulb(c))
-
+for i in range(10):
+  b.place_bulb_randomly()
     
 b.visualize()
 
 print(b.check_solved())
+print(b.num_empty_squares)
