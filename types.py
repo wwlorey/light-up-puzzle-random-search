@@ -233,12 +233,34 @@ class Board():
         return True
       
       # Adjacent bulb processing
-      return True
+      adj_coords = []
+
+      if not coord.x == 0:
+        adj_coords.append(Coordinate(coord.x - 1, coord.y))
+
+      if not coord.x == self.num_rows - 1:
+        adj_coords.append(Coordinate(coord.x + 1, coord.y))
+      
+      if not coord.y == 0:
+        adj_coords.append(Coordinate(coord.x, coord.y - 1))
+      
+      if not coord.y == self.num_cols - 1:
+        adj_coords.append(Coordinate(coord.x, coord.y + 1))
+      
+      target_bulbs = square.adj_value
+
+      for adj_coord in adj_coords:
+        adj_square = self.board[adj_coord.x][adj_coord.y]
+
+        if adj_square.color == Color.WHITE and adj_square.has_bulb:
+          target_bulbs -= 1
+
+      return target_bulbs == 0
 
     if self.num_empty_white_squares != 0:
       return False
 
-    if self.config_settings["enforce_adj_quotas"]:
+    if self.config_settings["enforce_adj_quotas"] == 'True':
       for coord_row in self.coord_board:
         for coord in coord_row:
           if not check_adj_bulbs(coord):
@@ -258,3 +280,5 @@ for x in range(b.num_rows):
     print(c)
     print(b)
     print('\n\n')
+
+print(b.is_solved())
