@@ -3,10 +3,6 @@ import time
 import random
 
 
-ADJ_VALUE_DONT_CARE = 5
-MAX_NUM_RANDOM_PLACEMENTS = 100
-
-
 class Coordinate:
   def __init__(self, x, y):
     self.x = x
@@ -29,7 +25,7 @@ class Board:
     self.bulbs = set([])
 
     # Load configuration settings
-    with open('config.json', 'r') as config_file:
+    with open('default.cfg', 'r') as config_file:
       self.config_settings = json.loads(config_file.read().replace('\n', ''))
 
     if self.config_settings["generate_board"]:
@@ -212,7 +208,7 @@ class Board:
     # Check black square conditions
     if self.config_settings["enforce_adj_quotas"]:
       for coord, adj_value in self.black_squares.items():
-        if adj_value < ADJ_VALUE_DONT_CARE and get_adj_bulbs(coord) != adj_value:
+        if adj_value < self.config_settings["adj_value_dont_care"] and get_adj_bulbs(coord) != adj_value:
           return False
 
     return True
@@ -220,7 +216,7 @@ class Board:
   def place_bulb_randomly(self):
     """Attempts to put a bulb randomly on the board in a valid location.
 
-    Stops trying to put a bulb after MAX_NUM_RANDOM_PLACEMENTS tries.
+    Stops trying to put a bulb after max_num_random_placements tries.
     Returns True if successful, False otherwise.
     """
 
@@ -232,11 +228,11 @@ class Board:
     coord = get_rand_coord()
     count = 0
 
-    while count < MAX_NUM_RANDOM_PLACEMENTS and not self.put_bulb(coord):
+    while count < self.config_settings["max_num_random_placements"] and not self.put_bulb(coord):
       coord = get_rand_coord()
       count += 1
     
-    if count < MAX_NUM_RANDOM_PLACEMENTS:
+    if count < self.config_settings["max_num_random_placements"]:
       return True
     
     return False
