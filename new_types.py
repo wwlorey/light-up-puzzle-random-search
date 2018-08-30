@@ -79,7 +79,75 @@ class Board:
 
       This function should only be called in __init__
       """
-      pass 
+
+      def get_random_black_square_value(coord):
+        adj_coord_list = self.get_adj_coords(coord)
+        num_adj_black_squares = self.get_num_black_squares(adj_coord_list)
+        num_adj_bulbs = self.get_num_bulbs(adj_coord_list)
+
+        num_avail_bulb_positions = len(adj_coord_list) - num_adj_black_squares
+
+        # Generate random black square value
+        # TODO: This will need to be refactored for cleanliness 
+
+        value = 4 - num_avail_bulb_positions
+
+        found_working_value = False
+
+        while not found_working_value:
+          placed_bulbs = 0
+
+          if value == 0:
+            if num_adj_bulbs > 0:
+              value = 5 # We can't place any bulbs
+
+            break # No need to place adjacent bulbs
+          
+          elif value < 0:
+            value = 5
+            break # No need to place adjacent bulbs
+
+          # Place bulbs around the black square
+          for adj_coord in adj_coord_list:
+            if self.put_bulb(adj_coord):
+              placed_bulbs += 1
+          
+          if placed_bulbs < value:
+            value -= 1
+          if placed_bulbs > value:
+            value += 1
+          else: # placed_bulbs == value
+            found_working_value = True
+
+        return value
+
+
+
+      if self.config_settings["override_random_board_dimensions"]:
+        self.num_rows = self.config_settings["override_num_rows"]
+        self.num_cols = self.config_settings["override_num_cols"]
+
+      else:
+        min_dimension = self.config_settings["min_random_board_dimension"]
+        max_dimension = self.config_settings["max_random_board_dimension"]
+
+        self.num_rows = random.randint(min_dimension, max_dimension)
+        self.num_cols = random.randint(min_dimension, max_dimension)
+      
+      for row in range(self.num_rows):
+        for col in range(self.num_cols):
+          coord = Coordinate(row, col)
+
+          if not coord in self.bulbs and random.random() <= self.config_settings["black_square_placement_prob"]:
+            # Attempt to place a black square
+            value = get_random_black_square_value(coord)
+            self.black_squares[coord] = value
+      
+      # Re-initialize the bulb set
+      self.bulbs = set([])
+            
+
+
         
 
     self.black_squares = {}
@@ -190,6 +258,9 @@ class Board:
       # There is no shared row or column, or the coordinates are the same. Delimiting square is irrelevant
       return True
 
+
+    if coord in self.bulbs:
+      return True # We've already placed a bulb here
 
     if coord in self.black_squares:
       return False # Can't place a bulb on a black square 
