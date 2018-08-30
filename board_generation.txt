@@ -1,0 +1,92 @@
+      # This generation algorithm is not good. Saving it here for reference.
+
+      def check_black_square_placement(coord, value):
+        """Checks if the board is solvable given a particular black square placement.
+
+        Returns True if the board is still solvable, False otherwise.
+        """
+
+        def check_placement_violation(coord):
+          """Checks to see if placing a black square next to coord makes the board unsolvable.
+
+          Returns True if violation, False otherwise.
+          """
+          if not coord in self.black_squares:
+            return False
+
+          adj_coords = self.get_adj_coords(coord)
+          num_adj_black = self.get_num_black_squares(adj_coords)
+
+          if (len(adj_coords) - num_adj_black) <= self.black_squares[coord]:
+            return True # There is a placement violation
+          
+          return False
+
+
+        adj_list = self.get_adj_coords(coord)
+        num_adj_black_squares = self.get_num_black_squares(adj_list)
+
+        # Verify placement won't interfere with existing black squares
+        for adj_coord in adj_list:
+          if check_placement_violation(adj_coord):
+            return False # New square will violate existing black squares
+
+        # Verify placing the new black square allows room for bulbs around it
+        if len(adj_list) == 2:
+          # Square is in a corner
+          max_allowable_black_squares = 2
+        
+        if len(adj_list) == 3:
+          # Square is on a straightaway 
+          max_allowable_black_squares = 3
+        
+        if len(adj_list) == 4: 
+          # Square is in the middle somewhere
+          max_allowable_black_squares = 4
+          
+        if (max_allowable_black_squares - num_adj_black_squares) <= value:
+          return False # There is not a possability of placing the required number of adjacent bulbs
+        
+        # Verify diagonally adjacent placement
+        diag_adj_coords = self.get_diag_adj_coords(coord)
+        
+        if self.get_num_black_squares(diag_adj_coords) >= 2:
+          return False # There is a high probability of diagonal square interference
+
+        for diag_adj_coord in diag_adj_coords:
+          if diag_adj_coord in self.black_squares and self.black_squares[diag_adj_coord] != value:
+            return False # Diagonal square interference
+
+        return True
+
+
+      already_tried_black_squares = {}
+
+      if self.config_settings["override_random_board_dimensions"]:
+        self.num_rows = self.config_settings["override_num_rows"]
+        self.num_cols = self.config_settings["override_num_cols"]
+
+      else:
+        min_dimension = self.config_settings["min_random_board_dimension"]
+        max_dimension = self.config_settings["max_random_board_dimension"]
+
+        self.num_rows = random.randint(min_dimension, max_dimension)
+        self.num_cols = random.randint(min_dimension, max_dimension)
+      
+      count = 0
+
+      while count < self.config_settings["max_num_random_board_gen_placements"]:
+        black_square_coord = self.get_random_coord()
+        black_square_value = self.get_random_black_square_value()
+        
+        # Verify we haven't already tried this combination
+        if not black_square_coord in self.black_squares and not (black_square_coord in already_tried_black_squares and already_tried_black_squares[black_square_coord] == black_square_value):
+
+          # Verify the board is still solvable with the given black square
+          if check_black_square_placement(black_square_coord, black_square_value):
+            self.black_squares[black_square_coord] = black_square_value
+          
+          else:
+            already_tried_black_squares[black_square_coord] = black_square_value
+          
+        count += 1

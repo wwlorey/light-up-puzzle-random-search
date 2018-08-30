@@ -1,6 +1,7 @@
 import json
 import time
 import random
+import sys
 
 
 class Coordinate:
@@ -8,33 +9,117 @@ class Coordinate:
     self.x = x
     self.y = y
   
+
   def __str__(self):
     """Returns an ordered pair in string form."""
     return '(' + str(self.x) + ', ' + str(self.y) + ')'
   
+  
   def __eq__(self, other):
     return self.x == other.x and self.y == other.y
+
 
   def __hash__(self):
     return (self.x + 1) * 100000 + self.y
 
 
 class Board:
-  def __init__(self):
+  def get_random_coord(self):
+    """Returns a random coordinate ranging in the space (num_cols, num_rows)"""
+    return Coordinate(random.randint(0, self.num_rows - 1), random.randint(0, self.num_cols - 1))
+  
+
+  def get_random_black_square_value(self):
+    """Returns a random black square value with probability dictated by the configuration file"""
+    return random.choices(list(range(0, 6)), self.config_settings["black_square_value_probabilities"])[0]
+
+
+  def get_adj_coords(self, coord):
+    """Returns a list of coordinates adjacent to coordinate coord"""
+    adj_coords = []
+
+    if not coord.x == 0:
+      adj_coords.append(Coordinate(coord.x - 1, coord.y))
+
+    if not coord.x == self.num_rows - 1:
+      adj_coords.append(Coordinate(coord.x + 1, coord.y))
+    
+    if not coord.y == 0:
+      adj_coords.append(Coordinate(coord.x, coord.y - 1))
+    
+    if not coord.y == self.num_cols - 1:
+      adj_coords.append(Coordinate(coord.x, coord.y + 1))
+    
+    return adj_coords
+
+
+  def get_diag_adj_coords(self, coord):
+    """Returns a list of coordinates diagonally adjacent to coordinate coord"""
+    diag_adj_coords = []
+
+    if (not coord.x == 0) or (not coord.y == 0):
+      diag_adj_coords.append(Coordinate(coord.x - 1, coord.y - 1))
+
+    if (not coord.x == self.num_rows - 1) or (not coord.y == self.num_cols - 1):
+      diag_adj_coords.append(Coordinate(coord.x + 1, coord.y + 1))
+    
+    if (not coord.x == self.num_rows - 1) or (not coord.y == 0):
+      diag_adj_coords.append(Coordinate(coord.x + 1, coord.y - 1))
+    
+    if (not coord.x == 0) or (not coord.y == self.num_cols - 1):
+      diag_adj_coords.append(Coordinate(coord.x - 1, coord.y + 1))
+    
+    return diag_adj_coords
+
+
+  def __init__(self, board_config_file):
+
+    def generate_random_board():
+      """Randomly generates a solvable board.
+
+      This function should only be called in __init__
+      """
+      pass 
+        
+
     self.black_squares = {}
     self.bulbs = set([])
+    self.log_str = ''
 
     # Load configuration settings
-    with open('default.cfg', 'r') as config_file:
+    with open(board_config_file, 'r') as config_file:
       self.config_settings = json.loads(config_file.read().replace('\n', ''))
+
+    # Seed the random number generator
+    self.log_str += 'Seed: '
+    if self.config_settings["use_external_seed"]:
+      # Use external seed
+      seed_val = self.config_settings["seed"]
+
+    else:
+      # Default to system time as seed
+      seed_val = time.time
+
+    random.seed(seed_val)
+    self.log_str += str(seed_val) + '\n'
 
     if self.config_settings["generate_board"]:
       # Generate random initial board state
-      pass
+      generate_random_board()
+      self.log_str += 'Randomly generated puzzle.\n' + \
+                      '\tmax_num_random_board_gen_placements: ' + str(self.config_settings["max_num_random_board_gen_placements"]) + '\n' + \
+                      '\tmin_random_board_dimension: ' + str(self.config_settings["min_random_board_dimension"]) + '\n' + \
+                      '\tmax_random_board_dimension: ' + str(self.config_settings["max_random_board_dimension"]) + '\n' + \
+                      '\toverride_random_board_dimensions: ' + str(self.config_settings["override_random_board_dimensions"]) + '\n' + \
+                      '\toverride_num_rows: ' + str(self.config_settings["override_num_rows"]) + '\n' + \
+                      '\toverride_num_cols: ' + str(self.config_settings["override_num_cols"]) + '\n' + \
+                      '\tblack_square_value_probabilities: ' + str(self.config_settings["black_square_value_probabilities"]) + '\n'
 
     else:
       # Read initial board state
-      with open(self.config_settings["input_file_name"], 'r') as input_file:
+      with open(self.config_settings["input_file_path"], 'r') as input_file:
+        self.log_str += 'Puzzle source: ' + self.config_settings["input_file_path"] + '\n'
+
         # Read line 0 (number of columns)
         self.num_cols = int(input_file.readline())
 
@@ -44,8 +129,10 @@ class Board:
         # Read line 2 to EoF (coordinates of black squares and their adjacency values)
         for row in input_file:
           black_square_data = [int(i) for i in row.split()]
-          self.black_squares[Coordinate(black_square_data[0] - 1, black_square_data[1] - 1)] = black_square_data[2]
+          self.black_squares[Coordinate(black_square_data[1] - 1, black_square_data[0] - 1)] = black_square_data[2]
       
+    self.log_str += 'Board size (#rows x #cols): ' + str(self.num_rows) + ' x ' + str(self.num_cols) + '\n'
+
     # Generate coordinate versions of the board
     self.coord_board = []
 
@@ -53,19 +140,13 @@ class Board:
       coord_list = []
       for y in range(self.num_cols):
         coord_list.append(Coordinate(x, y))
+
       self.coord_board.append(coord_list)
     
     self.transpose_coord_board = [list(l) for l in zip(*self.coord_board)]
 
-    # Seed the random number generator
-    if self.config_settings["use_external_seed"]:
-      # Use external seed
-      random.seed(self.config_settings["seed"])
-    else:
-      # Default to system time as seed
-      random.seed(time.time)
-
     self.num_empty_squares = -1 # This value is updated during solution verification
+
 
   def put_bulb(self, coord):
     """Attempts to place a bulb at coord position on the board.
@@ -106,9 +187,9 @@ class Board:
         
         return False # No black square delimiter was found
 
-
       # There is no shared row or column, or the coordinates are the same. Delimiting square is irrelevant
       return True
+
 
     if coord in self.black_squares:
       return False # Can't place a bulb on a black square 
@@ -120,6 +201,7 @@ class Board:
 
     self.bulbs.add(coord)
     return True
+    
 
   def visualize(self):
     """Prints a string representation of the board.
@@ -128,7 +210,7 @@ class Board:
     'x' Black square (with 0 <= x <= 5)
     '!' Light bulb
     """
-    board = [ [ '_' for row in range(self.num_rows) ] for col in range(self.num_cols) ]
+    board = [ [ '_' for col in range(self.num_cols) ] for row in range(self.num_rows) ]
 
     for coord, value in self.black_squares.items():
       board[coord.x][coord.y] = str(value)
@@ -143,7 +225,30 @@ class Board:
       print()
 
     print()
+
   
+  def get_num_bulbs(self, coord_list):
+    """Returns the number of bulbs in coord_list"""
+    num_adj_bulbs = 0
+
+    for coord in coord_list:
+      if coord in self.bulbs:
+        num_adj_bulbs += 1
+    
+    return num_adj_bulbs
+   
+
+  def get_num_black_squares(self, coord_list):
+    """Returns the number of black squares in coord_list"""
+    num_adj_black_squares = 0  
+
+    for coord in coord_list:
+      if coord in self.black_squares:
+        num_adj_black_squares += 1
+    
+    return num_adj_black_squares 
+    
+
   def check_solved(self):
     """Checks to see if the board is solved.
 
@@ -152,31 +257,6 @@ class Board:
       2. No bulbs shine on eachother.
       3. Every black square has the required adjacent bulbs. (can be disabled using config file setting)
     """
-
-    def get_adj_bulbs(coord):
-      """Returns the number of adjacent bulbs to coordinate coord"""
-      adj_coords = []
-      num_adj_bulbs = 0
-
-      if not coord.x == 0:
-        adj_coords.append(Coordinate(coord.x - 1, coord.y))
-
-      if not coord.x == self.num_rows - 1:
-        adj_coords.append(Coordinate(coord.x + 1, coord.y))
-      
-      if not coord.y == 0:
-        adj_coords.append(Coordinate(coord.x, coord.y - 1))
-      
-      if not coord.y == self.num_cols - 1:
-        adj_coords.append(Coordinate(coord.x, coord.y + 1))
-      
-      for coord in adj_coords:
-        if coord in self.bulbs:
-          num_adj_bulbs += 1
-      
-      return num_adj_bulbs
-
-
     # Create and populate set of shined squares
     shined_squares = set([])
 
@@ -197,6 +277,9 @@ class Board:
             return False # Redundant check for bulb on bulb shining
           else:
             shined_squares.add(coord)
+
+    # Write solution to solution file
+    self.write_to_soln_file(len(shined_squares))
     
     # Verify all squares are accounted for
     if (len(self.black_squares) + len(self.bulbs) + len(shined_squares)) != (self.num_cols * self.num_rows):
@@ -208,31 +291,62 @@ class Board:
     # Check black square conditions
     if self.config_settings["enforce_adj_quotas"]:
       for coord, adj_value in self.black_squares.items():
-        if adj_value < self.config_settings["adj_value_dont_care"] and get_adj_bulbs(coord) != adj_value:
+        if adj_value < self.config_settings["adj_value_dont_care"] and self.get_num_bulbs(self.get_adj_coords(coord)) != adj_value:
           return False
 
     return True
+    
 
   def place_bulb_randomly(self):
     """Attempts to put a bulb randomly on the board in a valid location.
 
-    Stops trying to put a bulb after max_num_random_placements tries.
+    Stops trying to put a bulb after max_num_random_bulb_placements tries.
     Returns True if successful, False otherwise.
     """
-
-    def get_rand_coord():
-      """Returns a random coordinate ranging in the space (num_cols, num_rows)"""
-      return Coordinate(random.randint(0, self.num_cols - 1), random.randint(0, self.num_cols - 1))
-
-
-    coord = get_rand_coord()
+    coord = self.get_random_coord()
     count = 0
 
-    while count < self.config_settings["max_num_random_placements"] and not self.put_bulb(coord):
-      coord = get_rand_coord()
+    while count < self.config_settings["max_num_random_bulb_placements"] and not self.put_bulb(coord):
+      coord = self.get_random_coord()
       count += 1
     
-    if count < self.config_settings["max_num_random_placements"]:
+    if count < self.config_settings["max_num_random_bulb_placements"]:
       return True
     
     return False
+  
+  
+  def write_to_soln_file(self, num_lit):
+    with open(self.config_settings["soln_file_path"], 'a') as soln_file:
+      soln_file.write(str(self.num_cols) + '\n')
+      soln_file.write(str(self.num_rows) + '\n')
+
+      for coord in self.black_squares:
+        soln_file.write(str(coord.y) + ' ' + str(coord.x) + ' ' + str(self.black_squares[coord]) + '\n')
+      
+      soln_file.write(str(num_lit) + '\n')
+
+      for coord in self.bulbs:
+        soln_file.write(str(coord.y) + ' ' + str(coord.x) + '\n')
+      
+      soln_file.write('\n')
+
+
+if __name__ == '__main__':
+
+  if len(sys.argv) == 1:
+    # No argument for configuration file, use default
+    board_config_file = 'default.cfg'
+  
+  else:
+    # We have an external configuration file (the second item in sys.argv)
+    board_config_file = sys.argv[1]
+
+
+  b = Board(board_config_file) 
+
+  b.visualize()
+  for i in range(100):
+    b.place_bulb_randomly()
+  b.visualize()
+  print(b.check_solved())
