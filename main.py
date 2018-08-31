@@ -7,7 +7,7 @@ if __name__ == '__main__':
 
   if len(sys.argv) == 1:
     # No config file provided, use default
-    config_file = 'default.cfg'
+    config_file = 'config/default.cfg'
   
   else:
     # Use the provided config file
