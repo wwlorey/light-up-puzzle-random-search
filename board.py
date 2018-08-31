@@ -333,7 +333,11 @@ class Board:
 
     self.num_empty_squares = 0
 
-    return self.check_valid_solution()
+    # Check black square conditions
+    if self.config_settings["enforce_adj_quotas"]:
+      for coord, adj_value in self.black_squares.items():
+        if adj_value < self.config_settings["adj_value_dont_care"] and self.get_num_bulbs(self.get_adj_coords(coord)) != adj_value:
+          return False
 
     return True
 
@@ -345,6 +349,27 @@ class Board:
       1. No bulbs shine on eachother. (guaranteed by place_bulb() function)
       2. Every black square has the required adjacent bulbs. (can be disabled using config file setting)
     """
+    # Create and populate set of shined squares
+    self.shined_squares = set([])
+
+    for bulb_coord in self.bulbs:
+      # Create a list of adjacency lists - used for determining where the bulb shines
+      adj_coord_lists = []
+
+      adj_coord_lists.append(self.coord_board[bulb_coord.x][:bulb_coord.y][::-1])           # Row from this column to the left
+      adj_coord_lists.append(self.coord_board[bulb_coord.x][bulb_coord.y + 1:])             # Row from this column to the right
+      adj_coord_lists.append(self.transpose_coord_board[bulb_coord.y][:bulb_coord.x][::-1]) # Column from this row up
+      adj_coord_lists.append(self.transpose_coord_board[bulb_coord.y][bulb_coord.x + 1:])   # Column from this row down
+
+      for coord_list in adj_coord_lists:
+        for coord in coord_list:
+          if coord in self.black_squares:
+            break # Shine cannot propagate any further
+          elif coord in self.bulbs:
+            return False # Redundant check for bulb on bulb shining
+          else:
+            self.shined_squares.add(coord)
+
     # Check black square conditions
     if self.config_settings["enforce_adj_quotas"]:
       for coord, adj_value in self.black_squares.items():
@@ -373,7 +398,7 @@ class Board:
     return False
   
   
-  def write_to_soln_file(self, num_lit):
+  def write_to_soln_file(self):
     """Writes problem information to the solution file specified in the configuration file."""
     with open(self.config_settings["soln_file_path"], 'w') as soln_file:
       soln_file.write(str(self.num_cols) + '\n')
@@ -382,7 +407,7 @@ class Board:
       for coord in self.black_squares:
         soln_file.write(str(coord.y) + ' ' + str(coord.x) + ' ' + str(self.black_squares[coord]) + '\n')
       
-      soln_file.write(str(num_lit) + '\n')
+      soln_file.write(str(len(self.shined_squares)) + '\n')
 
       for coord in self.bulbs:
         soln_file.write(str(coord.y) + ' ' + str(coord.x) + '\n')
