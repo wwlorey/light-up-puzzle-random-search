@@ -4,9 +4,9 @@ import random
 import coordinate as coord_class
 
 
-class Board:
-  def __init__(self, board_config_file):
-    """Initializes the board class."""
+class LightUpPuzzle:
+  def __init__(self, config):
+    """Initializes the light up puzzle class."""
 
     def generate_coord_boards():
       """Generates a 2D coordinate board and its transpose.
@@ -59,13 +59,13 @@ class Board:
       self.black_squares = {}
       self.bulbs = set([])
 
-      if self.config_settings["override_random_board_dimensions"]:
-        self.num_rows = self.config_settings["override_num_rows"]
-        self.num_cols = self.config_settings["override_num_cols"]
+      if self.config.settings["override_random_board_dimensions"]:
+        self.num_rows = self.config.settings["override_num_rows"]
+        self.num_cols = self.config.settings["override_num_cols"]
 
       else:
-        min_dimension = self.config_settings["min_random_board_dimension"]
-        max_dimension = self.config_settings["max_random_board_dimension"]
+        min_dimension = self.config.settings["min_random_board_dimension"]
+        max_dimension = self.config.settings["max_random_board_dimension"]
 
         self.num_rows = random.randint(min_dimension, max_dimension)
         self.num_cols = random.randint(min_dimension, max_dimension)
@@ -82,12 +82,12 @@ class Board:
 
       # Assign black squares to the board
       for coord in shuffled_coords:
-        if not coord in self.bulbs and random.random() <= self.config_settings["black_square_placement_prob"]:
+        if not coord in self.bulbs and random.random() <= self.config.settings["black_square_placement_prob"]:
           adj_coord_list = self.get_adj_coords(coord)
           num_placed_bulbs = 0
 
           # Compute the random max value for this black square
-          max_value = random.choices(list(range(0, self.config_settings["adj_value_dont_care"])), self.config_settings["black_square_value_probabilities"])[0]
+          max_value = random.choices(list(range(0, self.config.settings["adj_value_dont_care"])), self.config.settings["black_square_value_probabilities"])[0]
 
           # Put a placeholder black square to ensure the maximum amount of bulbs can be placed
           self.black_squares[coord] = 5
@@ -111,15 +111,13 @@ class Board:
     self.bulbs = set([])
     self.log_str = 'Result Log\n'
 
-    # Load configuration settings
-    with open(board_config_file, 'r') as config_file:
-      self.config_settings = json.loads(config_file.read().replace('\n', ''))
+    self.config = config
 
     # Seed the random number generator
     self.log_str += 'seed: '
-    if self.config_settings["use_external_seed"]:
+    if self.config.settings["use_external_seed"]:
       # Use external seed
-      seed_val = self.config_settings["seed"]
+      seed_val = self.config.settings["seed"]
 
     else:
       # Default to system time as seed
@@ -130,7 +128,7 @@ class Board:
     random.seed(seed_val)
     self.log_str += str(seed_val) + '\n'
 
-    if self.config_settings["generate_board"]:
+    if self.config.settings["generate_board"]:
       # Generate random initial board state
       generate_random_board()
 
@@ -141,17 +139,17 @@ class Board:
       self.bulbs = set([])
 
       self.log_str += 'randomly generated puzzle.\n' + \
-                      '\tmax_num_random_board_gen_placements: ' + str(self.config_settings["max_num_random_board_gen_placements"]) + '\n' + \
-                      '\tmin_random_board_dimension: ' + str(self.config_settings["min_random_board_dimension"]) + '\n' + \
-                      '\tmax_random_board_dimension: ' + str(self.config_settings["max_random_board_dimension"]) + '\n' + \
-                      '\toverride_random_board_dimensions: ' + str(self.config_settings["override_random_board_dimensions"]) + '\n' + \
-                      '\toverride_num_rows: ' + str(self.config_settings["override_num_rows"]) + '\n' + \
-                      '\toverride_num_cols: ' + str(self.config_settings["override_num_cols"]) + '\n'
+                      '\tmax_num_random_board_gen_placements: ' + str(self.config.settings["max_num_random_board_gen_placements"]) + '\n' + \
+                      '\tmin_random_board_dimension: ' + str(self.config.settings["min_random_board_dimension"]) + '\n' + \
+                      '\tmax_random_board_dimension: ' + str(self.config.settings["max_random_board_dimension"]) + '\n' + \
+                      '\toverride_random_board_dimensions: ' + str(self.config.settings["override_random_board_dimensions"]) + '\n' + \
+                      '\toverride_num_rows: ' + str(self.config.settings["override_num_rows"]) + '\n' + \
+                      '\toverride_num_cols: ' + str(self.config.settings["override_num_cols"]) + '\n'
 
     else:
       # Read initial board state
-      with open(self.config_settings["input_file_path"], 'r') as input_file:
-        self.log_str += 'puzzle source: ' + self.config_settings["input_file_path"] + '\n'
+      with open(self.config.settings["input_file_path"], 'r') as input_file:
+        self.log_str += 'puzzle source: ' + self.config.settings["input_file_path"] + '\n'
 
         # Read line 0 (number of columns)
         self.num_cols = int(input_file.readline())
@@ -334,9 +332,9 @@ class Board:
     self.num_empty_squares = 0
 
     # Check black square conditions
-    if self.config_settings["enforce_adj_quotas"]:
+    if self.config.settings["enforce_adj_quotas"]:
       for coord, adj_value in self.black_squares.items():
-        if adj_value < self.config_settings["adj_value_dont_care"] and self.get_num_bulbs(self.get_adj_coords(coord)) != adj_value:
+        if adj_value < self.config.settings["adj_value_dont_care"] and self.get_num_bulbs(self.get_adj_coords(coord)) != adj_value:
           return False
 
     return True
@@ -371,9 +369,9 @@ class Board:
             self.shined_squares.add(coord)
 
     # Check black square conditions
-    if self.config_settings["enforce_adj_quotas"]:
+    if self.config.settings["enforce_adj_quotas"]:
       for coord, adj_value in self.black_squares.items():
-        if adj_value < self.config_settings["adj_value_dont_care"] and self.get_num_bulbs(self.get_adj_coords(coord)) != adj_value:
+        if adj_value < self.config.settings["adj_value_dont_care"] and self.get_num_bulbs(self.get_adj_coords(coord)) != adj_value:
           return False
     
     return True
@@ -388,11 +386,11 @@ class Board:
     coord = self.get_random_coord()
     count = 0
 
-    while count < self.config_settings["max_num_random_bulb_placements"] and not self.place_bulb(coord):
+    while count < self.config.settings["max_num_random_bulb_placements"] and not self.place_bulb(coord):
       coord = self.get_random_coord()
       count += 1
     
-    if count < self.config_settings["max_num_random_bulb_placements"]:
+    if count < self.config.settings["max_num_random_bulb_placements"]:
       return True
     
     return False
@@ -400,7 +398,7 @@ class Board:
   
   def write_to_soln_file(self):
     """Writes problem information to the solution file specified in the configuration file."""
-    with open(self.config_settings["soln_file_path"], 'w') as soln_file:
+    with open(self.config.settings["soln_file_path"], 'w') as soln_file:
       soln_file.write(str(self.num_cols) + '\n')
       soln_file.write(str(self.num_rows) + '\n')
 
