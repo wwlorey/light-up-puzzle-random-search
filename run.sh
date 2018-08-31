@@ -1,3 +1,3 @@
 #!/bin/bash
 
-python3 new_types.py $1
+python3 main.py $1

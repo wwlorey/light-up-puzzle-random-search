@@ -100,7 +100,7 @@ class Board:
           # Update the real black square value to match the number of adjacent bulbs
           self.black_squares[coord] = num_placed_bulbs
         
-      if not self.check_solved():
+      if not self.check_completely_solved():
         # Fill non-lit coordinates with black squares of value 5
         for coord in shuffled_coords:
           if not coord in self.shined_squares and not coord in self.bulbs and not coord in self.black_squares:
@@ -109,7 +109,7 @@ class Board:
 
     self.black_squares = {}
     self.bulbs = set([])
-    self.log_str = ''
+    self.log_str = 'Result Log\n'
 
     # Load configuration settings
     with open(board_config_file, 'r') as config_file:
@@ -134,11 +134,9 @@ class Board:
       # Generate random initial board state
       generate_random_board()
 
-      while len(self.black_squares) == (self.num_cols * self.num_rows) or not self.check_solved():
+      while len(self.black_squares) == (self.num_cols * self.num_rows) or not self.check_completely_solved():
         generate_random_board()
       
-      self.visualize()
-
       # Re-initialize the bulb set
       self.bulbs = set([])
 
@@ -296,12 +294,12 @@ class Board:
     return num_adj_black_squares 
     
 
-  def check_solved(self):
-    """Checks to see if the board is solved.
+  def check_completely_solved(self):
+    """Checks to see if the board is *completely* solved.
 
     Returns True if the following conditions are met:
       1. Every non-black square is shined on by a bulb.
-      2. No bulbs shine on eachother.
+      2. No bulbs shine on eachother. (guaranteed by place_bulb() function)
       3. Every black square has the required adjacent bulbs. (can be disabled using config file setting)
     """
     # Create and populate set of shined squares
@@ -328,9 +326,6 @@ class Board:
           else:
             self.shined_squares.add(coord)
 
-    # Write solution to solution file
-    self.write_to_soln_file(len(self.shined_squares))
-    
     # Verify all squares are accounted for
     if (len(self.black_squares) + len(self.bulbs) + len(self.shined_squares)) != (self.num_cols * self.num_rows):
       self.num_empty_squares = (self.num_cols * self.num_rows) - (len(self.shined_squares) + len(self.black_squares) + len(self.bulbs))
@@ -338,12 +333,24 @@ class Board:
 
     self.num_empty_squares = 0
 
+    return self.check_valid_solution()
+
+    return True
+
+
+  def check_valid_solution(self):
+    """Checks to see if the board is *valid*.
+
+    Returns True if the following conditions are met:
+      1. No bulbs shine on eachother. (guaranteed by place_bulb() function)
+      2. Every black square has the required adjacent bulbs. (can be disabled using config file setting)
+    """
     # Check black square conditions
     if self.config_settings["enforce_adj_quotas"]:
       for coord, adj_value in self.black_squares.items():
         if adj_value < self.config_settings["adj_value_dont_care"] and self.get_num_bulbs(self.get_adj_coords(coord)) != adj_value:
           return False
-
+    
     return True
     
 
@@ -367,7 +374,8 @@ class Board:
   
   
   def write_to_soln_file(self, num_lit):
-    with open(self.config_settings["soln_file_path"], 'a') as soln_file:
+    """Writes problem information to the solution file specified in the configuration file."""
+    with open(self.config_settings["soln_file_path"], 'w') as soln_file:
       soln_file.write(str(self.num_cols) + '\n')
       soln_file.write(str(self.num_rows) + '\n')
 
@@ -380,3 +388,16 @@ class Board:
         soln_file.write(str(coord.y) + ' ' + str(coord.x) + '\n')
       
       soln_file.write('\n')
+
+
+  def get_fitness(self):
+    """Returns the fitness of the puzzle.
+
+    Fitness is defined as the number of lit squares on the board.
+    """
+    return len(self.shined_squares)
+  
+
+  def clear_board(self):
+    """Clears all bulbs from the board."""
+    self.bulbs = set([])
