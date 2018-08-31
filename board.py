@@ -8,6 +8,23 @@ class Board:
   def __init__(self, board_config_file):
     """Initializes the board class."""
 
+    def generate_coord_boards():
+      """Generates a 2D coordinate board and its transpose.
+      
+      These are used when verifying solutions and creating random boards.
+      """
+      self.coord_board = []
+
+      for x in range(self.num_rows):
+        coord_list = []
+        for y in range(self.num_cols):
+          coord_list.append(coord_class.Coordinate(x, y))
+
+        self.coord_board.append(coord_list)
+      
+      self.transpose_coord_board = [list(l) for l in zip(*self.coord_board)]
+
+
     def generate_random_board():
       """Randomly generates a solvable board.
 
@@ -17,6 +34,31 @@ class Board:
 
       This function should only be called in __init__
       """
+
+      def get_max_black_square_value(adj_coord_list):
+        """Returns the maximum allowable of black squares for a coordinate.
+
+        This is calculated using the list of coordinates adjacent to the coordinate in question.
+        """
+        if len(adj_coord_list) == 2:
+          # Square is in a corner
+          return 2
+        
+        if len(adj_coord_list) == 3:
+          # Square is on a straightaway 
+          return 3
+        
+        if len(adj_coord_list) == 4: 
+          # Square is in the middle somewhere
+          return 4
+        
+        # Undefined behavior
+        return 0
+
+
+      self.black_squares = {}
+      self.bulbs = set([])
+
       if self.config_settings["override_random_board_dimensions"]:
         self.num_rows = self.config_settings["override_num_rows"]
         self.num_cols = self.config_settings["override_num_cols"]
@@ -27,55 +69,43 @@ class Board:
 
         self.num_rows = random.randint(min_dimension, max_dimension)
         self.num_cols = random.randint(min_dimension, max_dimension)
-      
-      for row in range(self.num_rows):
-        for col in range(self.num_cols):
-          coord = coord_class.Coordinate(row, col)
 
-          if not coord in self.bulbs and random.random() <= self.config_settings["black_square_placement_prob"]:
-            # Place a black square            
-            adj_coord_list = self.get_adj_coords(coord)
-            num_adj_black_squares = self.get_num_black_squares(adj_coord_list)
-            num_adj_bulbs = self.get_num_bulbs(adj_coord_list)
-            num_avail_bulb_positions = len(adj_coord_list) - num_adj_black_squares
+      generate_coord_boards()
 
-            # Generate random black square value
-            # TODO: This will need to be refactored for cleanliness 
+      # Create a list of shuffled coordinates used in assigning black squares
+      shuffled_coords = []
+      for row in self.coord_board:
+        for coord in row:
+          shuffled_coords.append(coord)
 
-            value = 4 - num_avail_bulb_positions
-            found_working_value = False
+      random.shuffle(shuffled_coords)
 
-            while not found_working_value:
-              num_placed_bulbs = 0
+      # Assign black squares to the board
+      for coord in shuffled_coords:
+        if not coord in self.bulbs and random.random() <= self.config_settings["black_square_placement_prob"]:
+          adj_coord_list = self.get_adj_coords(coord)
+          num_placed_bulbs = 0
 
-              if value == 0:
-                if num_adj_bulbs > 0:
-                  value = 5 # We can't place any bulbs
+          # Compute the random max value for this black square
+          max_value = random.choices(list(range(0, self.config_settings["adj_value_dont_care"])), self.config_settings["black_square_value_probabilities"])[0]
 
-                break # No need to place adjacent bulbs
-              
-              elif value < 0:
-                value = 5
-                break # No need to place adjacent bulbs
+          # Put a placeholder black square to ensure the maximum amount of bulbs can be placed
+          self.black_squares[coord] = 5
 
-              # Place bulbs around the black square
-              for adj_coord in adj_coord_list:
-                if self.put_bulb(adj_coord):
-                  num_placed_bulbs += 1
-              
-              # Adjust the value accordingly
-              if num_placed_bulbs < value:
-                value -= 1
-              if num_placed_bulbs > value:
-                value += 1
-              else: # num_placed_bulbs == value
-                found_working_value = True
+          # Place bulbs around the square, if allowed
+          for adj_coord in adj_coord_list:
+            if num_placed_bulbs < max_value and self.place_bulb(adj_coord):
+              num_placed_bulbs += 1
 
-            self.black_squares[coord] = value
-      
-      # Re-initialize the bulb set
-      self.bulbs = set([])
+          # Update the real black square value to match the number of adjacent bulbs
+          self.black_squares[coord] = num_placed_bulbs
         
+      if not self.check_solved():
+        # Fill non-lit coordinates with black squares of value 5
+        for coord in shuffled_coords:
+          if not coord in self.shined_squares and not coord in self.bulbs and not coord in self.black_squares:
+            self.black_squares[coord] = 5
+      
 
     self.black_squares = {}
     self.bulbs = set([])
@@ -93,7 +123,9 @@ class Board:
 
     else:
       # Default to system time as seed
-      seed_val = time.time
+      seed_val = time.time()
+    
+    print(seed_val)
 
     random.seed(seed_val)
     self.log_str += str(seed_val) + '\n'
@@ -101,14 +133,22 @@ class Board:
     if self.config_settings["generate_board"]:
       # Generate random initial board state
       generate_random_board()
+
+      while len(self.black_squares) == (self.num_cols * self.num_rows) or not self.check_solved():
+        generate_random_board()
+      
+      self.visualize()
+
+      # Re-initialize the bulb set
+      self.bulbs = set([])
+
       self.log_str += 'randomly generated puzzle.\n' + \
                       '\tmax_num_random_board_gen_placements: ' + str(self.config_settings["max_num_random_board_gen_placements"]) + '\n' + \
                       '\tmin_random_board_dimension: ' + str(self.config_settings["min_random_board_dimension"]) + '\n' + \
                       '\tmax_random_board_dimension: ' + str(self.config_settings["max_random_board_dimension"]) + '\n' + \
                       '\toverride_random_board_dimensions: ' + str(self.config_settings["override_random_board_dimensions"]) + '\n' + \
                       '\toverride_num_rows: ' + str(self.config_settings["override_num_rows"]) + '\n' + \
-                      '\toverride_num_cols: ' + str(self.config_settings["override_num_cols"]) + '\n' + \
-                      '\tblack_square_value_probabilities: ' + str(self.config_settings["black_square_value_probabilities"]) + '\n'
+                      '\toverride_num_cols: ' + str(self.config_settings["override_num_cols"]) + '\n'
 
     else:
       # Read initial board state
@@ -125,20 +165,11 @@ class Board:
         for row in input_file:
           black_square_data = [int(i) for i in row.split()]
           self.black_squares[coord_class.Coordinate(black_square_data[1] - 1, black_square_data[0] - 1)] = black_square_data[2]
+        
+      # Generate coordinate versions of the board
+      generate_coord_boards()
       
     self.log_str += 'board size (#rows x #cols): ' + str(self.num_rows) + ' x ' + str(self.num_cols) + '\n'
-
-    # Generate coordinate versions of the board
-    self.coord_board = []
-
-    for x in range(self.num_rows):
-      coord_list = []
-      for y in range(self.num_cols):
-        coord_list.append(coord_class.Coordinate(x, y))
-
-      self.coord_board.append(coord_list)
-    
-    self.transpose_coord_board = [list(l) for l in zip(*self.coord_board)]
 
     self.num_empty_squares = -1 # This value is updated during solution verification
 
@@ -147,11 +178,6 @@ class Board:
     """Returns a random coordinate ranging in the space (num_cols, num_rows)."""
     return coord_class.Coordinate(random.randint(0, self.num_rows - 1), random.randint(0, self.num_cols - 1))
   
-
-  def get_random_black_square_value(self):
-    """Returns a random black square value with probability dictated by the configuration file."""
-    return random.choices(list(range(0, 6)), self.config_settings["black_square_value_probabilities"])[0]
-
 
   def get_adj_coords(self, coord):
     """Returns a list of coordinates adjacent to coordinate coord"""
@@ -172,59 +198,53 @@ class Board:
     return adj_coords
 
 
-  def put_bulb(self, coord):
+  def place_bulb(self, coord):
     """Attempts to place a bulb at coord position on the board.
 
     Returns True on success, False on fail.
     """
-
-    def has_delimiting_black_square(coord_a, coord_b):
-      """Checks for a black square between the given coordinates' shared row or column.
-
-      Returns True if there is a delimiting black square, False otherwise.
-      """
-      if coord_a == coord_b:
-        return True # Delimiting square is irrelevant
-
-      if coord_a.x == coord_b.x:
-        # Check for delimiting black square in row
-        upper_bound = max(coord_a.y, coord_b.y)
-        lower_bound = min(coord_a.y, coord_b.y)
-        row = coord_a.x
-
-        for black_square in self.black_squares:
-          if black_square.x == row and (upper_bound > black_square.y and lower_bound < black_square.y):
-              return True
-        
-        return False # No black square delimiter was found
-      
-
-      if coord_a.y == coord_b.y:
-        # Check for delimiting black square in column
-        upper_bound = max(coord_a.x, coord_b.x)
-        lower_bound = min(coord_a.x, coord_b.x)
-        col = coord_a.y
-
-        for black_square in self.black_squares:
-          if black_square.y == col and (upper_bound > black_square.x and lower_bound < black_square.x):
-            return True
-        
-        return False # No black square delimiter was found
-
-      # There is no shared row or column, or the coordinates are the same. Delimiting square is irrelevant
-      return True
-
-
-    if coord in self.bulbs:
-      return True # We've already placed a bulb here
-
     if coord in self.black_squares:
       return False # Can't place a bulb on a black square 
 
-    # Check for duplicate bulbs in rows & columns
-    for bulb_coord in self.bulbs:
-      if (coord.x == bulb_coord.x or coord.y == bulb_coord.y) and not has_delimiting_black_square(coord, bulb_coord):
-        return False # We cannot safely place a bulb at coord
+    # Check for cross-shine in the coordinate's row (same x value)
+    matching_x_coord_bulbs = [c for c in self.bulbs if c.x == coord.x]
+    found_x_delimeter = False if len(matching_x_coord_bulbs) else True
+
+    for bulb_coord in matching_x_coord_bulbs:
+      if bulb_coord.x == coord.x:
+        min_y = min(bulb_coord.y, coord.y)
+        max_y = max(bulb_coord.y, coord.y)
+
+        if max_y - min_y < 2:
+          return False
+        
+        for black_coord in [c for c in self.black_squares if c.x == coord.x]:
+          if black_coord.y < max_y and black_coord.y > min_y:
+            found_x_delimeter = True
+            break
+
+    if not found_x_delimeter:
+      return False
+      
+    # Check for cross-shine in the coordinate's column (same y value)
+    matching_y_coord_bulbs = [c for c in self.bulbs if c.y == coord.y]
+    found_y_delimeter = False if len(matching_y_coord_bulbs) else True
+
+    for bulb_coord in matching_y_coord_bulbs:
+      if bulb_coord.y == coord.y:
+        min_x = min(bulb_coord.x, coord.x)
+        max_x = max(bulb_coord.x, coord.x)
+
+        if max_x - min_x < 2:
+          return False
+        
+        for black_coord in [c for c in self.black_squares if c.y == coord.y]:
+          if black_coord.x < max_x and black_coord.x > min_x:
+            found_y_delimeter = True
+            break
+    
+    if not found_y_delimeter:
+      return False
 
     self.bulbs.add(coord)
     return True
@@ -285,7 +305,10 @@ class Board:
       3. Every black square has the required adjacent bulbs. (can be disabled using config file setting)
     """
     # Create and populate set of shined squares
-    shined_squares = set([])
+    self.shined_squares = set([])
+
+    if len(self.bulbs) == 0:
+      return False
 
     for bulb_coord in self.bulbs:
       # Create a list of adjacency lists - used for determining where the bulb shines
@@ -303,14 +326,14 @@ class Board:
           elif coord in self.bulbs:
             return False # Redundant check for bulb on bulb shining
           else:
-            shined_squares.add(coord)
+            self.shined_squares.add(coord)
 
     # Write solution to solution file
-    self.write_to_soln_file(len(shined_squares))
+    self.write_to_soln_file(len(self.shined_squares))
     
     # Verify all squares are accounted for
-    if (len(self.black_squares) + len(self.bulbs) + len(shined_squares)) != (self.num_cols * self.num_rows):
-      self.num_empty_squares = (self.num_cols * self.num_rows) - (len(shined_squares) + len(self.black_squares) + len(self.bulbs))
+    if (len(self.black_squares) + len(self.bulbs) + len(self.shined_squares)) != (self.num_cols * self.num_rows):
+      self.num_empty_squares = (self.num_cols * self.num_rows) - (len(self.shined_squares) + len(self.black_squares) + len(self.bulbs))
       return False
 
     self.num_empty_squares = 0
@@ -333,7 +356,7 @@ class Board:
     coord = self.get_random_coord()
     count = 0
 
-    while count < self.config_settings["max_num_random_bulb_placements"] and not self.put_bulb(coord):
+    while count < self.config_settings["max_num_random_bulb_placements"] and not self.place_bulb(coord):
       coord = self.get_random_coord()
       count += 1
     
