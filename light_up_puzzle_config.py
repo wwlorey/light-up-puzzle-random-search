@@ -1,5 +1,6 @@
 import json
 
+
 class LightUpPuzzleConfig:
     def __init__(self, config_file):
         """Initializes the light up puzzle config class.
