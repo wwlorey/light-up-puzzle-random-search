@@ -1,3 +1,5 @@
+#### CS 5401 Evolutionary Computing | Solving light up (Akari) puzzles using random search
+
 #################################
 #   Execution Instructions   #
 #################################
@@ -9,6 +11,8 @@ To compile and run the code, simply run the following script. This defaults to u
 Or, include the optional configuration file parameter.
 
 	./run.sh config/website_puzzle.cfg
+
+#### Provided README:
 
 #################################
 #	Coding Standards	#
